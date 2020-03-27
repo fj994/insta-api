@@ -1,24 +1,20 @@
 var express = require('express');
 var app = express();
 var bodyParser = require('body-parser');
+var Cors = require('cors');
+const db = require('./queries');
 
-app.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-});
-
+app.use(Cors());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json())
+app.use(bodyParser.json());
 
 app.get('/', function (req, res) {
     res.send('Hello Čagl!');
 });
 
-app.post('/', function (req, res) {
-    console.log(req.body);
-    res.send('success!');
-});
+app.post('/users', db.createUser);
+
+app.post('/login', db.validateLogin);
 
 app.listen(3000, function () {
     console.log('Listening on port 3000!');
