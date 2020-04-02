@@ -3,14 +3,16 @@ var app = express();
 var bodyParser = require('body-parser');
 var Cors = require('cors');
 const db = require('./queries');
+const jwt = require('./jwt');
 
 app.use(Cors());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.get('/', function (req, res) {
-    res.send('Hello Čagl!');
-});
+app.get('/', jwt.validateToken, function (req, res) {
+    
+    res.status(200).send({ mess: 'Hello Čagl!' });
+ });
 
 app.post('/users', db.createUser);
 
