@@ -1,4 +1,6 @@
 const Pool = require('pg').Pool;
+const jwt = require('./jwt');
+
 const pool = new Pool({
     user: 'filip',
     host: 'localhost',
@@ -36,7 +38,8 @@ const validateLogin = (req, res) => {
             } else if (results.rows[0].password !== password) {
                 res.status(200).send({ login: false, message: 'Invalid password!' });
             } else {
-                res.status(200).send({ login: true, message: null });
+                console.log(jwt.issueToken(email));
+                res.status(200).send({ login: true, message: null, token: jwt.issueToken(email)});
             };
         })
     } else {
