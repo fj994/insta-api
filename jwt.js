@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('./queries');
 
 const jwtKey = 'rajui';
 const refreshKey = 'rajuiRefresh';
@@ -12,14 +13,14 @@ const issueToken = (email, id) => {
 
 const issueRefreshToken = (email, id) => {
     return jwt.sign({ email, id }, refreshKey, {
-        algorithm:"HS256",
+        algorithm: "HS256",
         expiresIn: '180d'
     })
 }
 
 let validateToken = (req, res, next) => {
-    if(!req.headers.authorization) {
-        res.send({error: 'No token!'});
+    if (!req.headers.authorization) {
+        res.send({ login: false, error: 'No token!' });
         return;
     }
     jwt.verify(req.headers.authorization.replace('Bearer ', ''), jwtKey, (err, verifySucces) => {
@@ -31,8 +32,31 @@ let validateToken = (req, res, next) => {
     });
 }
 
+const refreshAuthToken = (req, res) => {
+    if (!req.body.token || !req.body.refreshToken) {
+        res.send({ login: false, error: 'No token!' });
+        return;
+    }
+
+    if (jwt.verify(req.body.refreshToken, refreshKey)) {
+        jwt.verify(req.body.token, jwtKey, (err) => {
+            if (err.message === 'jwt expired') {
+                const payload = jwt.decode(req.body.token);
+                // if (db.validateRefreshToken(req.body.refreshToken, payload.id)) {
+                const refreshedToken = issueToken(payload.email, payload.id);
+                
+                res.send({ login: true, token: refreshedToken });
+                // } else {
+                //     res.status(401).send({error: 'refresh token not valid!'});
+                // }
+            }
+        })
+    }
+}
+
 module.exports = {
     issueToken,
     issueRefreshToken,
+    refreshAuthToken,
     validateToken
 }

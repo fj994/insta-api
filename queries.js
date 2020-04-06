@@ -41,11 +41,10 @@ const validateLogin = (req, res) => {
                 const refreshToken = jwt.issueRefreshToken(email, results.rows[0].id);
                 const id = results.rows[0].id;
 
-                updateRefreshToken(refreshToken, id);
+                issueRefreshToken(refreshToken, id);
 
                 res.status(200).send({
                     login: true,
-                    message: null,
                     token: jwt.issueToken(email, id),
                     refreshToken: refreshToken
                 });
@@ -56,9 +55,9 @@ const validateLogin = (req, res) => {
     }
 }
 
-const updateRefreshToken = (token, id) => {
+const issueRefreshToken = (token, id) => {
     if (token && id) {
-        pool.query(`UPDATE users SET refreshtoken = '${token}' where id = '${id}'`, (err, results) => {
+        pool.query(`UPDATE users SET refreshtoken = '${token}' WHERE id = '${id}'`, (err, results) => {
             if (err) {
                 console.log('refresh token erorr!');
                 res.sendStatus('400');
@@ -69,7 +68,26 @@ const updateRefreshToken = (token, id) => {
     }
 }
 
+const validateRefreshToken = (token, id) => {
+    pool.query(`SELECT * FROM users WHERE id = '${id}'`, (err, results) => {
+        if (err) {
+            return false;
+        } else {
+            if (results.rowCount < 1) {
+                console.log('invalid ID');
+                return false
+            } else {
+                if (results.rows[0].refreshToken === token) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    })
+}
+
 module.exports = {
     createUser,
-    validateLogin
+    validateLogin,
+    validateRefreshToken
 }

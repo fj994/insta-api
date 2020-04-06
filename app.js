@@ -18,6 +18,8 @@ app.post('/users', db.createUser);
 
 app.post('/login', db.validateLogin);
 
+app.post('/refresh', jwt.refreshAuthToken);
+
 app.listen(3000, function () {
     console.log('Listening on port 3000!');
 });
