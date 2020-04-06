@@ -38,11 +38,34 @@ const validateLogin = (req, res) => {
             } else if (results.rows[0].password !== password) {
                 res.status(400).send({ login: false, message: 'Invalid password!' });
             } else {
-                res.status(200).send({ login: true, message: null, token: jwt.issueToken(email, results.rows[0].id)});
+                const refreshToken = jwt.issueRefreshToken(email, results.rows[0].id);
+                const id = results.rows[0].id;
+
+                updateRefreshToken(refreshToken, id);
+
+                res.status(200).send({
+                    login: true,
+                    message: null,
+                    token: jwt.issueToken(email, id),
+                    refreshToken: refreshToken
+                });
             };
         })
     } else {
         res.status(400).send({ login: false, message: 'Please enter username and password!' });
+    }
+}
+
+const updateRefreshToken = (token, id) => {
+    if (token && id) {
+        pool.query(`UPDATE users SET refreshtoken = '${token}' where id = '${id}'`, (err, results) => {
+            if (err) {
+                console.log('refresh token erorr!');
+                res.sendStatus('400');
+            } else {
+                console.log(results);
+            }
+        });
     }
 }
 
