@@ -1,5 +1,6 @@
 const Pool = require('pg').Pool;
 const jwt = require('./jwt');
+const moment = require('moment');
 
 const pool = new Pool({
     user: 'filip',
@@ -86,8 +87,28 @@ const validateRefreshToken = (token, id) => {
     })
 }
 
+const insertImage = (imagePath, user_id) => {
+    pool.query(`INSERT INTO posts (image_path, user_id) VALUES ('${imagePath}', ${user_id}) ORDER BY post_timestamp DESC`, (err, results) => {
+        if(err) {
+            console.log(err);
+            return;
+        }
+        console.log(results);
+    });
+}
+
+const selectUserImages = (req, res, next) => {    
+    const id = req.url.split('/').pop();
+    
+    pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}`, (req, result) => {
+        res.send({resu: result.rows});
+    });
+}
+
 module.exports = {
     createUser,
     validateLogin,
-    validateRefreshToken
+    validateRefreshToken,
+    insertImage,
+    selectUserImages
 }
