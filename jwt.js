@@ -44,7 +44,7 @@ const refreshAuthToken = (req, res) => {
                 const payload = jwt.decode(req.body.token);
                 // if (db.validateRefreshToken(req.body.refreshToken, payload.id)) {
                 const refreshedToken = issueToken(payload.email, payload.id);
-                
+
                 res.send({ login: true, token: refreshedToken });
                 // } else {
                 //     res.status(401).send({error: 'refresh token not valid!'});
@@ -54,9 +54,14 @@ const refreshAuthToken = (req, res) => {
     }
 }
 
+const getId = req => {
+    return jwt.decode(req.headers.authorization.replace('Bearer ', '')).id;
+}
+
 module.exports = {
     issueToken,
     issueRefreshToken,
     refreshAuthToken,
-    validateToken
+    validateToken,
+    getId
 }

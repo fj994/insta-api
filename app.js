@@ -26,7 +26,9 @@ const joinResourcePath = fileName => joinPath(`/pictures/${fileName}`);
 //     res.status(200).send({ mess: 'Hello Čagl!' });
 //  });
 
-app.get('/profile/:id', jwt.validateToken, db.selectUserImages);
+app.get('/profile/:id', jwt.validateToken, db.getProfile);
+
+app.get('/newsfeed', jwt.validateToken, db.getNewsfeed)
 
 app.post('/users', db.createUser);
 
@@ -46,7 +48,6 @@ app.post('/post/upload/:id', jwt.validateToken, async (req, res) => {
     const image = `${shortid.generate()}.${ext}`;
     const imagePath = joinResourcePath(image);
     const resp = {
-        err: null,
         image
     };
 
@@ -59,6 +60,8 @@ app.post('/post/upload/:id', jwt.validateToken, async (req, res) => {
         return res.status(500).send(e);
     }
 
+    console.log(resp);
+    
     return res.send(resp);
 })
 

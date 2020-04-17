@@ -1,6 +1,7 @@
 const Pool = require('pg').Pool;
 const jwt = require('./jwt');
 const moment = require('moment');
+const async = require('async');
 
 const pool = new Pool({
     user: 'filip',
@@ -88,8 +89,8 @@ const validateRefreshToken = (token, id) => {
 }
 
 const insertImage = (imagePath, user_id) => {
-    pool.query(`INSERT INTO posts (image_path, user_id) VALUES ('${imagePath}', ${user_id}) ORDER BY post_timestamp DESC`, (err, results) => {
-        if(err) {
+    pool.query(`INSERT INTO posts (image_path, user_id) VALUES ('${imagePath}', ${user_id})`, (err, results) => {
+        if (err) {
             console.log(err);
             return;
         }
@@ -97,12 +98,56 @@ const insertImage = (imagePath, user_id) => {
     });
 }
 
-const selectUserImages = (req, res, next) => {    
+const selectUserImages = (req, res, next) => {
     const id = req.url.split('/').pop();
-    
-    pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}`, (req, result) => {
-        res.send({resu: result.rows});
+
+    pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {
+        res.send({ imagePaths: result.rows });
     });
+}
+
+const getProfile = (req, res, next) => {
+    const id = req.url.split('/').pop();
+
+    let profile = {
+        name: null,
+        profileImage: null,
+        posts: []
+    }
+
+    async.parallel([
+        function (parallel_done) {
+            pool.query(`SELECT email, profile_image_path FROM users WHERE id = ${id}`, (err, result) => {
+                profile.name = result.rows[0].email;
+                profile.profileImage = result.rows[0].profile_image_path;
+                parallel_done();
+            });
+        },
+        function (parallel_done) {
+            pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {
+                profile.posts = result.rows.map(element => element.image_path);
+                parallel_done();
+            });
+        }
+    ], function (err) {
+        if (err) console.log(err);
+        res.send(profile);
+    })
+}
+
+const getNewsfeed = (req, res, next) => {
+    const user_id = jwt.getId(req);
+    
+    pool.query(`SELECT post_id, user_id, email, profile_image_path, image_path, post_timestamp  
+                FROM posts inner join users on (posts.user_id = users.id) 
+                WHERE user_id IN (SELECT follow_id FROM user_follows WHERE user_id = ${user_id})
+                order by post_timestamp desc`, (err, result) => {
+        if (err) {
+            res.status(500).send({ error: 'errorr' });
+        } else {
+            res.send(result.rows);
+        }
+    })
 }
 
 module.exports = {
@@ -110,5 +155,7 @@ module.exports = {
     validateLogin,
     validateRefreshToken,
     insertImage,
-    selectUserImages
+    selectUserImages,
+    getProfile,
+    getNewsfeed
 }
