@@ -22,7 +22,7 @@ const joinPath = fileName => path.join(appRoot.path, `/${fileName}`);
 const joinResourcePath = fileName => joinPath(`/pictures/${fileName}`);
 
 // app.get('/', jwt.validateToken, function (req, res) {
-    
+
 //     res.status(200).send({ mess: 'Hello Čagl!' });
 //  });
 
@@ -36,14 +36,18 @@ app.post('/login', db.validateLogin);
 
 app.post('/refresh', jwt.refreshAuthToken);
 
-app.post('/post/upload/:id', jwt.validateToken, async (req, res) => {    
-    if(!req.files) {
-        return res.status(400).send({message:'No files were uploaded.'});
+app.post('/post/upload', jwt.validateToken, async (req, res) => {
+    if (!req.files) {
+        return res.status(400).send({ message: 'No files were uploaded.' });
     }
-    
-    user_id = req.url.split('/')[3];
+
+    user_id = jwt.getId(req);
 
     const { file } = req.files;
+    const { caption, hashtags } = req.body;
+
+    console.log(caption, hashtags);
+    
     const ext = getFileExt(file.name);
     const image = `${shortid.generate()}.${ext}`;
     const imagePath = joinResourcePath(image);
@@ -55,12 +59,10 @@ app.post('/post/upload/:id', jwt.validateToken, async (req, res) => {
         const readPic = await jimp.read(file.data);
 
         readPic.write(imagePath);
-        db.insertImage(image, user_id);
+        db.insertImage(image, user_id, caption, hashtags);
     } catch (e) {
         return res.status(500).send(e);
     }
-
-    console.log(resp);
     
     return res.send(resp);
 })

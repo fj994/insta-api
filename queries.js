@@ -88,14 +88,38 @@ const validateRefreshToken = (token, id) => {
     })
 }
 
-const insertImage = (imagePath, user_id) => {
-    pool.query(`INSERT INTO posts (image_path, user_id) VALUES ('${imagePath}', ${user_id})`, (err, results) => {
-        if (err) {
-            console.log(err);
-            return;
+const insertImage = (imagePath, user_id, caption, hashtags) => {
+    hashtags = hashtags.split(',');
+
+    async.parallel([
+        function(parallel_done) {
+            pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${imagePath}', ${user_id}, '${caption}')`, (err, results) => {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+            });
+            parallel_done()
+        },
+        function (parallel_done) {
+            hashtags.forEach(element => {
+                
+                pool.query(`INSERT INTO hashtags (post_id, hashtag) values (${user_id}, '${element}')`, (err, results) => {
+                    console.log(element);
+                    
+                    if(err) {
+                        console.log(err);
+                        return;
+                    }                 
+                    if(element === hashtags[hashtags.lenght -1]) {
+                        parallel_done();
+                    }
+                })    
+            });
         }
-        console.log(results);
-    });
+    ], function (err) {
+        if(err) console.log(err);
+    })
 }
 
 const selectUserImages = (req, res, next) => {
@@ -112,7 +136,9 @@ const getProfile = (req, res, next) => {
     let profile = {
         name: null,
         profileImage: null,
-        posts: []
+        posts: [],
+        followersCount: null,
+        followingCount: null
     }
 
     async.parallel([
@@ -128,6 +154,13 @@ const getProfile = (req, res, next) => {
                 profile.posts = result.rows.map(element => element.image_path);
                 parallel_done();
             });
+        },
+        function (parallel_done) {
+            pool.query(`SELECT count(*) FILTER (WHERE user_id = ${id}) AS followsCount, count(*) FILTER (WHERE follow_id = ${id}) AS followingCount FROM user_follows`, (err, result) => {
+                profile.followersCount = result.rows[0].followscount;
+                profile.followingCount = result.rows[0].followingcount;                
+                parallel_done();
+            });
         }
     ], function (err) {
         if (err) console.log(err);
@@ -137,7 +170,7 @@ const getProfile = (req, res, next) => {
 
 const getNewsfeed = (req, res, next) => {
     const user_id = jwt.getId(req);
-    
+
     pool.query(`SELECT post_id, user_id, email, profile_image_path, image_path, post_timestamp  
                 FROM posts inner join users on (posts.user_id = users.id) 
                 WHERE user_id IN (SELECT follow_id FROM user_follows WHERE user_id = ${user_id})
