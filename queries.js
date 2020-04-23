@@ -213,7 +213,7 @@ const getNewsfeed = (req, res, next) => {
 const insertComment = (req, res) => {
     const user_id = jwt.getId(req);
     console.log(req.body);
-    
+
     pool.query(`INSERT INTO post_comments (user_id, post_id, comment) values (${user_id}, ${req.body.post_id}, '${req.body.comment}')`, (err, result) => {
         if (err) {
             console.log(err);
@@ -225,6 +225,29 @@ const insertComment = (req, res) => {
     })
 }
 
+const insertLike = (req, res) => {
+    const user_id = jwt.getId(req);
+    if (req.body.value === true) {
+        pool.query(`INSERT INTO post_likes (user_id, post_id) VALUES (${user_id}, ${req.body.post_id})`, (err, results) => {
+            if (err) {
+                console.log(err);
+                res.status(500).send({ err: err });
+            } else {
+                res.send({ err: null });
+            }
+        })
+    } else {
+        pool.query(`DELETE FROM post_likes WHERE user_id = ${user_id} and post_id = ${req.body.post_id}`, (err, results) => {
+            if (err) {
+                console.log(err);
+                res.status(500).send({ err: err });
+            } else {
+                res.send({ err: null });
+            }
+        })
+    }
+}
+
 module.exports = {
     createUser,
     validateLogin,
@@ -233,5 +256,6 @@ module.exports = {
     selectUserImages,
     getProfile,
     getNewsfeed,
-    insertComment
+    insertComment,
+    insertLike
 }

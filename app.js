@@ -67,7 +67,9 @@ app.post('/post/upload', jwt.validateToken, async (req, res) => {
     return res.send(resp);
 })
 
-app.post('/comment', jwt.validateToken, db.insertComment)
+app.post('/comment', jwt.validateToken, db.insertComment);
+
+app.post('/like', jwt.validateToken, db.insertLike);
 
 app.listen(3000, function () {
     console.log('Listening on port 3000!');
