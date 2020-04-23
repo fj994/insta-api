@@ -91,35 +91,36 @@ const validateRefreshToken = (token, id) => {
 const insertImage = (imagePath, user_id, caption, hashtags) => {
     hashtags = hashtags.split(',');
 
-    async.parallel([
-        function(parallel_done) {
-            pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${imagePath}', ${user_id}, '${caption}')`, (err, results) => {
-                if (err) {
-                    console.log(err);
-                    return;
-                }
-            });
-            parallel_done()
-        },
-        function (parallel_done) {
-            hashtags.forEach(element => {
-                
-                pool.query(`INSERT INTO hashtags (post_id, hashtag) values (${user_id}, '${element}')`, (err, results) => {
-                    console.log(element);
-                    
-                    if(err) {
-                        console.log(err);
-                        return;
-                    }                 
-                    if(element === hashtags[hashtags.lenght -1]) {
+
+
+    pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${imagePath}', ${user_id}, '${caption}') RETURNING post_id`, (err, results) => {
+        if (err) {
+            console.log(err);
+            return;
+        } else {
+            const post_id = results.rows[0].post_id;
+
+            async.parallel([
+                function (parallel_done) {
+                    if (hashtags[0] !== 'null') {
+                        hashtags.forEach(element => {
+                            pool.query(`INSERT INTO hashtags (post_id, hashtag) values (${post_id}, '${element}')`, (err, results) => {
+                                if (err) {
+                                    console.log(err);
+                                    return;
+                                }
+                                if (element === hashtags[hashtags.lenght - 1]) {
+                                    parallel_done();
+                                }
+                            })
+                        });
+                    } else {
                         parallel_done();
                     }
-                })    
-            });
+                }
+            ]);
         }
-    ], function (err) {
-        if(err) console.log(err);
-    })
+    });
 }
 
 const selectUserImages = (req, res, next) => {
@@ -158,7 +159,7 @@ const getProfile = (req, res, next) => {
         function (parallel_done) {
             pool.query(`SELECT count(*) FILTER (WHERE user_id = ${id}) AS followsCount, count(*) FILTER (WHERE follow_id = ${id}) AS followingCount FROM user_follows`, (err, result) => {
                 profile.followersCount = result.rows[0].followscount;
-                profile.followingCount = result.rows[0].followingcount;                
+                profile.followingCount = result.rows[0].followingcount;
                 parallel_done();
             });
         }
@@ -171,15 +172,56 @@ const getProfile = (req, res, next) => {
 const getNewsfeed = (req, res, next) => {
     const user_id = jwt.getId(req);
 
-    pool.query(`SELECT post_id, user_id, email, profile_image_path, image_path, post_timestamp  
-                FROM posts inner join users on (posts.user_id = users.id) 
-                WHERE user_id IN (SELECT follow_id FROM user_follows WHERE user_id = ${user_id})
-                order by post_timestamp desc`, (err, result) => {
+    pool.query(`SELECT distinct posts.post_id, posts.user_id, email, profile_image_path, image_path, caption, post_timestamp, 
+                    ARRAY(select hashtag 
+                            from hashtags 
+                            WHERE posts.post_id = hashtags.post_id) as hashtags,
+                    ARRAY(SELECT user_id 
+                            FROM post_likes 
+                            WHERE posts.post_id = post_likes.post_id) as likes
+                    FROM posts
+                    inner join users on (posts.user_id = users.id)
+                    left join hashtags on(posts.post_id = hashtags.post_id)
+                    left join post_likes on(posts.post_id = post_likes.post_id)
+                    left join post_comments on(posts.post_id = post_comments.post_id)
+                    WHERE posts.user_id IN (SELECT follow_id 
+                                            FROM user_follows 
+                                            WHERE user_id = ${user_id})
+                    order by post_timestamp desc`, (err, result) => {
         if (err) {
             res.status(500).send({ error: 'errorr' });
         } else {
-            res.send(result.rows);
+            let counter = 0;
+            result.rows.forEach(function (row, index) {
+                pool.query(`SELECT user_id, email, profile_image_path, comment, time_stamp 
+                            from users
+                            inner join post_comments on (users.id = post_comments.user_id)
+                            where post_comments.post_id = ${row.post_id}
+                            order by time_stamp asc`, (err, resu) => {
+                    this[index].comments = resu.rows;
+                    counter++;
+
+                    if (this.length === counter) {
+                        res.send(result.rows);
+                    }
+                });
+            }, result.rows);
         }
+    })
+}
+
+const insertComment = (req, res) => {
+    const user_id = jwt.getId(req);
+    console.log(req.body);
+    
+    pool.query(`INSERT INTO post_comments (user_id, post_id, comment) values (${user_id}, ${req.body.post_id}, '${req.body.comment}')`, (err, result) => {
+        if (err) {
+            console.log(err);
+            res.send({ err: err });
+        } else {
+            res.send({ err: null });
+        }
+
     })
 }
 
@@ -190,5 +232,6 @@ module.exports = {
     insertImage,
     selectUserImages,
     getProfile,
-    getNewsfeed
+    getNewsfeed,
+    insertComment
 }
