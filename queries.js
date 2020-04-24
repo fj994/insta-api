@@ -91,8 +91,6 @@ const validateRefreshToken = (token, id) => {
 const insertImage = (imagePath, user_id, caption, hashtags) => {
     hashtags = hashtags.split(',');
 
-
-
     pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${imagePath}', ${user_id}, '${caption}') RETURNING post_id`, (err, results) => {
         if (err) {
             console.log(err);
@@ -135,25 +133,30 @@ const getProfile = (req, res, next) => {
     const id = req.url.split('/').pop();
 
     let profile = {
+        id: null,
         name: null,
         profileImage: null,
         posts: [],
         followersCount: null,
-        followingCount: null
+        followingCount: null,
+        followStatus: null
     }
 
     async.parallel([
         function (parallel_done) {
-            pool.query(`SELECT email, profile_image_path FROM users WHERE id = ${id}`, (err, result) => {
-                profile.name = result.rows[0].email;
-                profile.profileImage = result.rows[0].profile_image_path;
+            pool.query(`SELECT id, email, profile_image_path FROM users WHERE id = ${id}`, (err, result) => {
+                if (result.rows.length > 0) {
+                    profile.id = result.rows[0].id;
+                    profile.name = result.rows[0].email;
+                    profile.profileImage = result.rows[0].profile_image_path;
+                }
                 parallel_done();
             });
         },
         function (parallel_done) {
-            pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {
-                profile.posts = result.rows.map(element => element.image_path);
-                parallel_done();
+            pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {                    
+                    profile.posts = result.rows.map(element => element.image_path);
+                    parallel_done();
             });
         },
         function (parallel_done) {
@@ -162,9 +165,22 @@ const getProfile = (req, res, next) => {
                 profile.followingCount = result.rows[0].followingcount;
                 parallel_done();
             });
+        },
+        function (parallel_done) {
+            pool.query(`SELECT EXISTS(SELECT 1 FROM user_follows WHERE user_id = ${jwt.getId(req)} and follow_id = ${id})`, (err, result) => {
+                profile.followStatus = result.rows[0].exists;
+                parallel_done();
+            });
         }
     ], function (err) {
         if (err) console.log(err);
+        console.log(profile);
+        
+        if(!profile.id) {
+            res.sendStatus(404);
+            return;
+        }
+
         res.send(profile);
     })
 }
@@ -190,7 +206,7 @@ const getNewsfeed = (req, res, next) => {
                     order by post_timestamp desc`, (err, result) => {
         if (err) {
             res.status(500).send({ error: 'errorr' });
-        } else {
+        } else if (result.rows.length > 0) {
             let counter = 0;
             result.rows.forEach(function (row, index) {
                 pool.query(`SELECT user_id, email, profile_image_path, comment, time_stamp 
@@ -206,6 +222,8 @@ const getNewsfeed = (req, res, next) => {
                     }
                 });
             }, result.rows);
+        } else {
+            res.send([]);
         }
     })
 }
@@ -248,6 +266,31 @@ const insertLike = (req, res) => {
     }
 }
 
+const changeFollowStatus = (req, res) => {
+    const user_id = jwt.getId(req);
+    const follow_id = req.body.id;
+
+    if (req.body.status) {
+        pool.query(`DELETE FROM user_follows WHERE user_id = ${user_id} and follow_id = ${follow_id}`, (err, results) => {
+            if (err) {
+                console.log(err);
+                res.status(500).send({ err: err });
+            } else {
+                res.send({ err: null });
+            }
+        })
+    } else {
+        pool.query(`INSERT INTO user_follows (user_id, follow_id) VALUES (${user_id}, ${follow_id})`, (err, results) => {
+            if (err) {
+                console.log(err);
+                res.status(500).send({ err: err });
+            } else {
+                res.send({ err: null });
+            }
+        })
+    }
+}
+
 module.exports = {
     createUser,
     validateLogin,
@@ -257,5 +300,6 @@ module.exports = {
     getProfile,
     getNewsfeed,
     insertComment,
-    insertLike
+    insertLike,
+    changeFollowStatus
 }

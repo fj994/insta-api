@@ -21,11 +21,6 @@ const getFileExt = fileName => fileName.split('.').pop();
 const joinPath = fileName => path.join(appRoot.path, `/${fileName}`);
 const joinResourcePath = fileName => joinPath(`/pictures/${fileName}`);
 
-// app.get('/', jwt.validateToken, function (req, res) {
-
-//     res.status(200).send({ mess: 'Hello Čagl!' });
-//  });
-
 app.get('/profile/:id', jwt.validateToken, db.getProfile);
 
 app.get('/newsfeed', jwt.validateToken, db.getNewsfeed)
@@ -70,6 +65,8 @@ app.post('/post/upload', jwt.validateToken, async (req, res) => {
 app.post('/comment', jwt.validateToken, db.insertComment);
 
 app.post('/like', jwt.validateToken, db.insertLike);
+
+app.post('/follow', jwt.validateToken, db.changeFollowStatus)
 
 app.listen(3000, function () {
     console.log('Listening on port 3000!');
