@@ -37,18 +37,14 @@ const refreshAuthToken = (req, res) => {
         res.send({ login: false, error: 'No token!' });
         return;
     }
-
+    
     if (jwt.verify(req.body.refreshToken, refreshKey)) {
         jwt.verify(req.body.token, jwtKey, (err) => {
             if (err.message === 'jwt expired') {
                 const payload = jwt.decode(req.body.token);
-                // if (db.validateRefreshToken(req.body.refreshToken, payload.id)) {
-                const refreshedToken = issueToken(payload.email, payload.id);
+                    const refreshedToken = issueToken(payload.email, payload.id);
 
-                res.send({ login: true, token: refreshedToken });
-                // } else {
-                //     res.status(401).send({error: 'refresh token not valid!'});
-                // }
+                    res.send({ login: true, token: refreshedToken });
             }
         })
     }

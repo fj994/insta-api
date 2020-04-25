@@ -29,7 +29,7 @@ app.post('/users', db.createUser);
 
 app.post('/login', db.validateLogin);
 
-app.post('/refresh', jwt.refreshAuthToken);
+app.post('/refresh', db.validateRefreshToken, jwt.refreshAuthToken);
 
 app.post('/post/upload', jwt.validateToken, async (req, res) => {
     if (!req.files) {

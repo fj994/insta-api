@@ -70,21 +70,25 @@ const issueRefreshToken = (token, id) => {
     }
 }
 
-const validateRefreshToken = (token, id) => {
-    pool.query(`SELECT * FROM users WHERE id = '${id}'`, (err, results) => {
+const validateRefreshToken = (req, res, next) => {
+    user_id = jwt.getId(req);
+    
+    pool.query(`SELECT refreshtoken FROM users WHERE id = '${user_id}'`, (err, results) => {
         if (err) {
-            return false;
+            res.send({ err: err });
         } else {
+
             if (results.rowCount < 1) {
                 console.log('invalid ID');
-                return false
-            } else {
-                if (results.rows[0].refreshToken === token) {
-                    return true;
+                res.send({ err: 'invalid ID' });
+            } else {                
+                if (results.rows[0].refreshToken === req.body.refreshtoken) {                    
+                    next();
+                } else {
+                    res.send({err: 'Invalid refresh token!'});
                 }
             }
         }
-        return false;
     })
 }
 
@@ -154,9 +158,9 @@ const getProfile = (req, res, next) => {
             });
         },
         function (parallel_done) {
-            pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {                    
-                    profile.posts = result.rows.map(element => element.image_path);
-                    parallel_done();
+            pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {
+                profile.posts = result.rows.map(element => element.image_path);
+                parallel_done();
             });
         },
         function (parallel_done) {
@@ -175,8 +179,8 @@ const getProfile = (req, res, next) => {
     ], function (err) {
         if (err) console.log(err);
         console.log(profile);
-        
-        if(!profile.id) {
+
+        if (!profile.id) {
             res.sendStatus(404);
             return;
         }
