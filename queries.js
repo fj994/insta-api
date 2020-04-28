@@ -1,6 +1,5 @@
 const Pool = require('pg').Pool;
 const jwt = require('./jwt');
-const moment = require('moment');
 const async = require('async');
 
 const pool = new Pool({
@@ -43,7 +42,7 @@ const validateLogin = (req, res) => {
                 const refreshToken = jwt.issueRefreshToken(email, results.rows[0].id);
                 const id = results.rows[0].id;
 
-                issueRefreshToken(refreshToken, id);
+                insertRefreshToken(refreshToken, id);
 
                 res.status(200).send({
                     login: true,
@@ -57,7 +56,7 @@ const validateLogin = (req, res) => {
     }
 }
 
-const issueRefreshToken = (token, id) => {
+const insertRefreshToken = (token, id) => {
     if (token && id) {
         pool.query(`UPDATE users SET refreshtoken = '${token}' WHERE id = '${id}'`, (err, results) => {
             if (err) {
@@ -75,17 +74,17 @@ const validateRefreshToken = (req, res, next) => {
     
     pool.query(`SELECT refreshtoken FROM users WHERE id = '${user_id}'`, (err, results) => {
         if (err) {
-            res.send({ err: err });
+            res.send({login: false, err: err });
         } else {
 
             if (results.rowCount < 1) {
                 console.log('invalid ID');
-                res.send({ err: 'invalid ID' });
-            } else {                
-                if (results.rows[0].refreshToken === req.body.refreshtoken) {                    
+                res.send({login: false, err: 'invalid ID' });
+            } else {                                                                
+                if (results.rows[0].refreshtoken != null && results.rows[0].refreshtoken === req.body.refreshToken) {                                        
                     next();
                 } else {
-                    res.send({err: 'Invalid refresh token!'});
+                    res.send({login: false, err: 'Invalid refresh token!'});
                 }
             }
         }
@@ -137,7 +136,7 @@ const getProfile = (req, res, next) => {
     const id = req.url.split('/').pop();
 
     let profile = {
-        id: null,
+        id: null, 
         name: null,
         profileImage: null,
         posts: [],
@@ -178,7 +177,6 @@ const getProfile = (req, res, next) => {
         }
     ], function (err) {
         if (err) console.log(err);
-        console.log(profile);
 
         if (!profile.id) {
             res.sendStatus(404);

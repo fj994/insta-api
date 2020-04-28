@@ -14,7 +14,7 @@ const issueToken = (email, id) => {
 const issueRefreshToken = (email, id) => {
     return jwt.sign({ email, id }, refreshKey, {
         algorithm: "HS256",
-        expiresIn: '180d'
+        expiresIn: '30d'
     })
 }
 
@@ -37,17 +37,22 @@ const refreshAuthToken = (req, res) => {
         res.send({ login: false, error: 'No token!' });
         return;
     }
-    
-    if (jwt.verify(req.body.refreshToken, refreshKey)) {
-        jwt.verify(req.body.token, jwtKey, (err) => {
-            if (err.message === 'jwt expired') {
-                const payload = jwt.decode(req.body.token);
+
+
+    jwt.verify(req.body.refreshToken, refreshKey, (err) => {
+        if (err) {
+            res.send({login: false, token: null, err: err.message });
+        } else {
+            jwt.verify(req.body.token, jwtKey, (err) => {
+                if (err.message === 'jwt expired') {
+                    const payload = jwt.decode(req.body.token);
                     const refreshedToken = issueToken(payload.email, payload.id);
 
-                    res.send({ login: true, token: refreshedToken });
-            }
-        })
-    }
+                    res.send({ login: true, token: refreshedToken, err: null });
+                }
+            })
+        }
+    })
 }
 
 const getId = req => {
