@@ -1,25 +1,21 @@
-var express = require('express');
-var app = express();
-var bodyParser = require('body-parser');
-var Cors = require('cors');
-var db = require('./queries');
-var jwt = require('./jwt');
-var jimp = require('jimp');
-var shortid = require('shortid');
-var path = require('path');
-var fileUpload = require('express-fileupload');
-var appRoot = require('app-root-path');
-const url = require('url');
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
+const Cors = require('cors');
+const db = require('./queries');
+const jwt = require('./jwt');
+const upload = require('./upload');
+const fileUpload = require('express-fileupload');
+
+const path = require('path');
+
 
 app.use(Cors());
+app.use(fileUpload());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use('/static', express.static(path.join(__dirname, 'pictures')));
-app.use(fileUpload());
 
-const getFileExt = fileName => fileName.split('.').pop();
-const joinPath = fileName => path.join(appRoot.path, `/${fileName}`);
-const joinResourcePath = fileName => joinPath(`/pictures/${fileName}`);
 
 app.get('/profile/:id', jwt.validateToken, db.getProfile);
 
@@ -31,42 +27,15 @@ app.post('/login', db.validateLogin);
 
 app.post('/refresh', db.validateRefreshToken, jwt.refreshAuthToken);
 
-app.post('/post/upload', jwt.validateToken, async (req, res) => {
-    if (!req.files) {
-        return res.status(400).send({ message: 'No files were uploaded.' });
-    }
-
-    user_id = jwt.getId(req);
-
-    const { file } = req.files;
-    const { caption, hashtags } = req.body;
-
-    console.log(caption, hashtags);
-    
-    const ext = getFileExt(file.name);
-    const image = `${shortid.generate()}.${ext}`;
-    const imagePath = joinResourcePath(image);
-    const resp = {
-        image
-    };
-
-    try {
-        const readPic = await jimp.read(file.data);
-
-        readPic.write(imagePath);
-        db.insertImage(image, user_id, caption, hashtags);
-    } catch (e) {
-        return res.status(500).send(e);
-    }
-    
-    return res.send(resp);
-})
+app.post('/post/upload', jwt.validateToken, upload.uploadImage, db.insertPostImage);
 
 app.post('/comment', jwt.validateToken, db.insertComment);
 
 app.post('/like', jwt.validateToken, db.insertLike);
 
 app.post('/follow', jwt.validateToken, db.changeFollowStatus)
+
+app.post('/uploadprofile', jwt.validateToken, upload.uploadImage, db.insertProfileImage)
 
 app.listen(3000, function () {
     console.log('Listening on port 3000!');

@@ -91,10 +91,12 @@ const validateRefreshToken = (req, res, next) => {
     })
 }
 
-const insertImage = (imagePath, user_id, caption, hashtags) => {
-    hashtags = hashtags.split(',');
+const insertPostImage = (req, res) => {
+    let {image, user_id, caption, hashtags} = req.image;
 
-    pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${imagePath}', ${user_id}, '${caption}') RETURNING post_id`, (err, results) => {
+    hashtags = hashtags.split(',');
+    
+    pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${image}', ${user_id}, '${caption}') RETURNING post_id`, (err, results) => {
         if (err) {
             console.log(err);
             return;
@@ -104,13 +106,19 @@ const insertImage = (imagePath, user_id, caption, hashtags) => {
             async.parallel([
                 function (parallel_done) {
                     if (hashtags[0] !== 'null') {
+                        hashtags = [...new Set(hashtags)];
+                        let counter = 0;
+
                         hashtags.forEach(element => {
                             pool.query(`INSERT INTO hashtags (post_id, hashtag) values (${post_id}, '${element}')`, (err, results) => {
                                 if (err) {
                                     console.log(err);
-                                    return;
+                                    res.send({err});
                                 }
-                                if (element === hashtags[hashtags.lenght - 1]) {
+
+                                counter++;        
+
+                                if (counter === hashtags.length) {
                                     parallel_done();
                                 }
                             })
@@ -119,7 +127,14 @@ const insertImage = (imagePath, user_id, caption, hashtags) => {
                         parallel_done();
                     }
                 }
-            ]);
+            ], function(err) {
+                if(err) {
+                    res.send({err})
+                    console.log(err);
+                };
+                console.log(image);
+                res.send({image});
+            });
         }
     });
 }
@@ -202,9 +217,9 @@ const getNewsfeed = (req, res, next) => {
                     left join hashtags on(posts.post_id = hashtags.post_id)
                     left join post_likes on(posts.post_id = post_likes.post_id)
                     left join post_comments on(posts.post_id = post_comments.post_id)
-                    WHERE posts.user_id IN (SELECT follow_id 
+                    WHERE posts.user_id IN ((SELECT follow_id 
                                             FROM user_follows 
-                                            WHERE user_id = ${user_id})
+                                            WHERE user_id = ${user_id}), ${user_id})
                     order by post_timestamp desc`, (err, result) => {
         if (err) {
             res.status(500).send({ error: 'errorr' });
@@ -293,15 +308,27 @@ const changeFollowStatus = (req, res) => {
     }
 }
 
+const insertProfileImage = (req, res) => {
+    const {image, user_id} = req.image;
+
+    pool.query(`UPDATE users
+                SET profile_image_path = '${image}'
+                WHERE id = ${user_id}`, (err, results) => {
+                    if(err) console.log(err);
+                    res.send({image: image});
+                });
+}
+
 module.exports = {
     createUser,
     validateLogin,
     validateRefreshToken,
-    insertImage,
+    insertPostImage,
     selectUserImages,
     getProfile,
     getNewsfeed,
     insertComment,
     insertLike,
-    changeFollowStatus
+    changeFollowStatus,
+    insertProfileImage
 }
