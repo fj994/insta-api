@@ -11,13 +11,13 @@ const pool = new Pool({
 });
 
 const createUser = (req, res) => {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    if (email && password) {
-        pool.query('INSERT INTO users (email, password) VALUES ($1, $2) RETURNING *', [email.toLowerCase(), password], (err, results) => {
+    if (username && password) {
+        pool.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *', [username.toLowerCase(), password], (err, results) => {
             if (err) {
-                if (err.constraint === 'users_email_key') {
-                    res.status(400).send({ message: 'Account with email already exists!', error: 'Email not unique!' });
+                if (err.constraint === 'users_username_key') {
+                    res.status(400).send({ message: 'Account with username already exists!', error: 'username not unique!' });
                     console.log(err.detail);
                 }
             } else {
@@ -30,23 +30,23 @@ const createUser = (req, res) => {
 }
 
 const validateLogin = (req, res) => {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    if (email && password) {
-        pool.query(`SELECT * FROM users WHERE email='${email}'`, (err, results) => {
+    if (username && password) {
+        pool.query(`SELECT id, username, password FROM users WHERE username='${username}'`, (err, results) => {
             if (results.rowCount < 1) {
                 res.status(400).send({ login: false, message: 'Invalid username!' });
             } else if (results.rows[0].password !== password) {
                 res.status(400).send({ login: false, message: 'Invalid password!' });
             } else {
-                const refreshToken = jwt.issueRefreshToken(email, results.rows[0].id);
                 const id = results.rows[0].id;
+                const refreshToken = jwt.issueRefreshToken(results.rows[0].username, id);
 
                 insertRefreshToken(refreshToken, id);
 
                 res.status(200).send({
                     login: true,
-                    token: jwt.issueToken(email, id),
+                    token: jwt.issueToken(username, id),
                     refreshToken: refreshToken
                 });
             };
@@ -147,10 +147,10 @@ const getProfile = (req, res, next) => {
 
     async.parallel([
         function (parallel_done) {
-            pool.query(`SELECT id, email, profile_image_path FROM users WHERE id = ${id}`, (err, result) => {
+            pool.query(`SELECT id, username, profile_image_path FROM users WHERE id = ${id}`, (err, result) => {
                 if (result.rows.length > 0) {
                     profile.id = result.rows[0].id;
-                    profile.name = result.rows[0].email;
+                    profile.name = result.rows[0].username;
                     profile.profileImage = result.rows[0].profile_image_path;
                 }
                 parallel_done();
@@ -190,7 +190,7 @@ const getProfile = (req, res, next) => {
 const getNewsfeed = (req, res, next) => {
     const user_id = jwt.getId(req);
 
-    pool.query(`SELECT distinct posts.post_id, posts.user_id, email, profile_image_path, image_path, caption, post_timestamp, 
+    pool.query(`SELECT distinct posts.post_id, posts.user_id, username, profile_image_path, image_path, caption, post_timestamp, 
                     ARRAY(select hashtag 
                             from hashtags 
                             WHERE posts.post_id = hashtags.post_id) as hashtags,
@@ -211,7 +211,7 @@ const getNewsfeed = (req, res, next) => {
         } else if (result.rows.length > 0) {
             let counter = 0;
             result.rows.forEach(function (row, index) {
-                pool.query(`SELECT user_id, email, profile_image_path, comment, time_stamp 
+                pool.query(`SELECT user_id, username, profile_image_path, comment, time_stamp 
                             from users
                             inner join post_comments on (users.id = post_comments.user_id)
                             where post_comments.post_id = ${row.post_id}

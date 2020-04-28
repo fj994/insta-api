@@ -1,18 +1,17 @@
 const jwt = require('jsonwebtoken');
-const db = require('./queries');
 
 const jwtKey = 'rajui';
 const refreshKey = 'rajuiRefresh';
 
-const issueToken = (email, id) => {
-    return jwt.sign({ email, id }, jwtKey, {
+const issueToken = (username, id) => {
+    return jwt.sign({ username, id }, jwtKey, {
         algorithm: 'HS256',
         expiresIn: '30s'
     })
 }
 
-const issueRefreshToken = (email, id) => {
-    return jwt.sign({ email, id }, refreshKey, {
+const issueRefreshToken = (username, id) => {
+    return jwt.sign({ username, id }, refreshKey, {
         algorithm: "HS256",
         expiresIn: '30d'
     })
@@ -46,7 +45,7 @@ const refreshAuthToken = (req, res) => {
             jwt.verify(req.body.token, jwtKey, (err) => {
                 if (err.message === 'jwt expired') {
                     const payload = jwt.decode(req.body.token);
-                    const refreshedToken = issueToken(payload.email, payload.id);
+                    const refreshedToken = issueToken(payload.username, payload.id);
 
                     res.send({ login: true, token: refreshedToken, err: null });
                 }
