@@ -19,8 +19,6 @@ const uploadImage = async (req, res, next) => {
     const { file } = req.files;
     const { caption, hashtags } = req.body;
 
-    console.log(caption, hashtags);
-
     const ext = getFileExt(file.name);
     const image = `${shortid.generate()}.${ext}`;
     const imagePath = joinResourcePath(image);
@@ -33,7 +31,6 @@ const uploadImage = async (req, res, next) => {
     } catch (e) {
         return res.status(500).send(e);
     }
-    // db.insertImage(image, user_id, caption, hashtags);
 
     req.image = {
         image,

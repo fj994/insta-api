@@ -19,7 +19,11 @@ app.use('/static', express.static(path.join(__dirname, 'pictures')));
 
 app.get('/profile/:id', jwt.validateToken, db.getProfile);
 
-app.get('/newsfeed', jwt.validateToken, db.getNewsfeed)
+app.get('/newsfeed', jwt.validateToken, db.getNewsfeed);
+
+app.get('/search-users', jwt.validateToken, db.getUsersSearch);
+
+app.get('/search-hashtags', jwt.validateToken, db.getHashtagSearch);
 
 app.post('/users', db.createUser);
 

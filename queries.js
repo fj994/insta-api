@@ -71,20 +71,20 @@ const insertRefreshToken = (token, id) => {
 
 const validateRefreshToken = (req, res, next) => {
     user_id = jwt.getId(req);
-    
+
     pool.query(`SELECT refreshtoken FROM users WHERE id = '${user_id}'`, (err, results) => {
         if (err) {
-            res.send({login: false, err: err });
+            res.send({ login: false, err: err });
         } else {
 
             if (results.rowCount < 1) {
                 console.log('invalid ID');
-                res.send({login: false, err: 'invalid ID' });
-            } else {                                                                
-                if (results.rows[0].refreshtoken != null && results.rows[0].refreshtoken === req.body.refreshToken) {                                        
+                res.send({ login: false, err: 'invalid ID' });
+            } else {
+                if (results.rows[0].refreshtoken != null && results.rows[0].refreshtoken === req.body.refreshToken) {
                     next();
                 } else {
-                    res.send({login: false, err: 'Invalid refresh token!'});
+                    res.send({ login: false, err: 'Invalid refresh token!' });
                 }
             }
         }
@@ -92,10 +92,10 @@ const validateRefreshToken = (req, res, next) => {
 }
 
 const insertPostImage = (req, res) => {
-    let {image, user_id, caption, hashtags} = req.image;
+    let { image, user_id, caption, hashtags } = req.image;
 
     hashtags = hashtags.split(',');
-    
+
     pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${image}', ${user_id}, '${caption}') RETURNING post_id`, (err, results) => {
         if (err) {
             console.log(err);
@@ -113,10 +113,10 @@ const insertPostImage = (req, res) => {
                             pool.query(`INSERT INTO hashtags (post_id, hashtag) values (${post_id}, '${element}')`, (err, results) => {
                                 if (err) {
                                     console.log(err);
-                                    res.send({err});
+                                    res.send({ err });
                                 }
 
-                                counter++;        
+                                counter++;
 
                                 if (counter === hashtags.length) {
                                     parallel_done();
@@ -127,13 +127,13 @@ const insertPostImage = (req, res) => {
                         parallel_done();
                     }
                 }
-            ], function(err) {
-                if(err) {
-                    res.send({err})
+            ], function (err) {
+                if (err) {
+                    res.send({ err })
                     console.log(err);
                 };
                 console.log(image);
-                res.send({image});
+                res.send({ image });
             });
         }
     });
@@ -151,7 +151,7 @@ const getProfile = (req, res, next) => {
     const id = req.url.split('/').pop();
 
     let profile = {
-        id: null, 
+        id: null,
         name: null,
         profileImage: null,
         posts: [],
@@ -309,14 +309,38 @@ const changeFollowStatus = (req, res) => {
 }
 
 const insertProfileImage = (req, res) => {
-    const {image, user_id} = req.image;
+    const { image, user_id } = req.image;
 
     pool.query(`UPDATE users
                 SET profile_image_path = '${image}'
                 WHERE id = ${user_id}`, (err, results) => {
-                    if(err) console.log(err);
-                    res.send({image: image});
-                });
+        if (err) console.log(err);
+        res.send({ image: image });
+    });
+}
+
+const getUsersSearch = (req, res) => {
+    const { params } = req.query;
+
+    pool.query(`SELECT id, username, profile_image_path 
+                FROM users 
+                WHERE username like '${params}%'
+                LIMIT 4`, (err, results) => {
+        if (err) console.log(err);
+        res.send({users: results.rows});
+    })
+}
+
+const getHashtagSearch = (req, res) => {
+    const { params } = req.query;
+
+    pool.query(`SELECT DISTINCT hashtag 
+                FROM hashtags 
+                WHERE hashtag LIKE '${params}%'
+                LIMIT 4`, (err, results) => {
+        if(err) console.log(err);
+        res.send({hashtags: results.rows});
+    })
 }
 
 module.exports = {
@@ -330,5 +354,7 @@ module.exports = {
     insertComment,
     insertLike,
     changeFollowStatus,
-    insertProfileImage
+    insertProfileImage,
+    getUsersSearch,
+    getHashtagSearch
 }
