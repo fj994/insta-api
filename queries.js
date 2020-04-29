@@ -204,6 +204,23 @@ const getProfile = (req, res, next) => {
 
 const getNewsfeed = (req, res, next) => {
     const user_id = jwt.getId(req);
+    let { hashtag } = req.query;
+    if(hashtag) hashtag = '#' + hashtag;
+
+    console.log(hashtag);
+    
+
+    const newsFeedQuery = `WHERE posts.user_id IN ((SELECT follow_id 
+                                                        FROM user_follows 
+                                                        WHERE user_id = ${user_id}))
+                                order by post_timestamp desc`;
+
+    const hashtagQuery = `WHERE posts.post_id IN ((SELECT post_id
+                                                        FROM hashtags 
+                                                        WHERE hashtag = '${hashtag}'))
+                                order by post_timestamp desc`;
+    
+    const query = hashtag ? hashtagQuery : newsFeedQuery;
 
     pool.query(`SELECT distinct posts.post_id, posts.user_id, username, profile_image_path, image_path, caption, post_timestamp, 
                     ARRAY(select hashtag 
@@ -217,12 +234,10 @@ const getNewsfeed = (req, res, next) => {
                     left join hashtags on(posts.post_id = hashtags.post_id)
                     left join post_likes on(posts.post_id = post_likes.post_id)
                     left join post_comments on(posts.post_id = post_comments.post_id)
-                    WHERE posts.user_id IN ((SELECT follow_id 
-                                            FROM user_follows 
-                                            WHERE user_id = ${user_id}), ${user_id})
-                    order by post_timestamp desc`, (err, result) => {
+                    ${query}
+                    `, (err, result) => {
         if (err) {
-            res.status(500).send({ error: 'errorr' });
+            res.status(400).send({ error: err });
         } else if (result.rows.length > 0) {
             let counter = 0;
             result.rows.forEach(function (row, index) {
@@ -243,6 +258,10 @@ const getNewsfeed = (req, res, next) => {
             res.send([]);
         }
     })
+}
+
+const getHashtagPosts = (req, res) => {
+    pool.query()
 }
 
 const insertComment = (req, res) => {
@@ -356,5 +375,6 @@ module.exports = {
     changeFollowStatus,
     insertProfileImage,
     getUsersSearch,
-    getHashtagSearch
+    getHashtagSearch,
+    getHashtagPosts
 }

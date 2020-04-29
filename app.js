@@ -21,6 +21,8 @@ app.get('/profile/:id', jwt.validateToken, db.getProfile);
 
 app.get('/newsfeed', jwt.validateToken, db.getNewsfeed);
 
+app.get('/hashtag', jwt.validateToken, db.getNewsfeed);
+
 app.get('/search-users', jwt.validateToken, db.getUsersSearch);
 
 app.get('/search-hashtags', jwt.validateToken, db.getHashtagSearch);
