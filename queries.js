@@ -14,14 +14,18 @@ const createUser = (req, res) => {
     const { username, password } = req.body;
 
     if (username && password) {
-        pool.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *', [username.toLowerCase(), password], (err, results) => {
-            if (err) {
-                if (err.constraint === 'users_username_key') {
+        pool.query(`INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *`, [username.toLowerCase(), password], (err, results) => {
+            if (err) {                
+                if (err.constraint === 'users_email_key') {
                     res.status(400).send({ message: 'Account with username already exists!', error: 'username not unique!' });
                     console.log(err.detail);
                 }
             } else {
-                res.status(201).send({ message: `User added with ID: ${results.rows[0].id}`, error: null });
+                const id = results.rows[0].id;
+                pool.query(`INSERT INTO user_follows (user_id, follow_id) VALUES (${id}, ${id})`, (err, results) => {
+                    if(err) console.log(err);
+                    res.status(201).send({ message: `User added with ID: ${id}`, error: null });
+                })
             }
         });
     } else {
@@ -33,7 +37,7 @@ const validateLogin = (req, res) => {
     const { username, password } = req.body;
 
     if (username && password) {
-        pool.query(`SELECT id, username, password FROM users WHERE username='${username}'`, (err, results) => {
+        pool.query(`SELECT id, username, password FROM users WHERE username='${username.toLowerCase()}'`, (err, results) => {
             if (results.rowCount < 1) {
                 res.status(400).send({ login: false, message: 'Invalid username!' });
             } else if (results.rows[0].password !== password) {
@@ -102,6 +106,7 @@ const insertPostImage = (req, res) => {
             return;
         } else {
             const post_id = results.rows[0].post_id;
+            let profile_image_path;
 
             async.parallel([
                 function (parallel_done) {
@@ -126,6 +131,12 @@ const insertPostImage = (req, res) => {
                     } else {
                         parallel_done();
                     }
+                }, function (parallel_done) {
+                    pool.query(`SELECT profile_image_path FROM users WHERE id = ${user_id}`, (err, results) => {
+                        if(err) console.log(err);
+                        profile_image_path = results.rows[0].profile_image_path;
+                        parallel_done();
+                    })
                 }
             ], function (err) {
                 if (err) {
@@ -133,7 +144,7 @@ const insertPostImage = (req, res) => {
                     console.log(err);
                 };
                 console.log(image);
-                res.send({ image });
+                res.send({ image: image, post_id: post_id, profile_image_path: profile_image_path });
             });
         }
     });
@@ -202,13 +213,11 @@ const getProfile = (req, res, next) => {
     })
 }
 
-const getNewsfeed = (req, res, next) => {
+const getPosts = (req, res, next) => {
     const user_id = jwt.getId(req);
-    let { hashtag } = req.query;
-    if(hashtag) hashtag = '#' + hashtag;
 
-    console.log(hashtag);
-    
+    let { hashtag } = req.query;
+    if (hashtag) hashtag = '#' + hashtag;
 
     const newsFeedQuery = `WHERE posts.user_id IN ((SELECT follow_id 
                                                         FROM user_follows 
@@ -219,7 +228,7 @@ const getNewsfeed = (req, res, next) => {
                                                         FROM hashtags 
                                                         WHERE hashtag = '${hashtag}'))
                                 order by post_timestamp desc`;
-    
+
     const query = hashtag ? hashtagQuery : newsFeedQuery;
 
     pool.query(`SELECT distinct posts.post_id, posts.user_id, username, profile_image_path, image_path, caption, post_timestamp, 
@@ -346,7 +355,7 @@ const getUsersSearch = (req, res) => {
                 WHERE username like '${params}%'
                 LIMIT 4`, (err, results) => {
         if (err) console.log(err);
-        res.send({users: results.rows});
+        res.send({ users: results.rows });
     })
 }
 
@@ -357,8 +366,8 @@ const getHashtagSearch = (req, res) => {
                 FROM hashtags 
                 WHERE hashtag LIKE '${params}%'
                 LIMIT 4`, (err, results) => {
-        if(err) console.log(err);
-        res.send({hashtags: results.rows});
+        if (err) console.log(err);
+        res.send({ hashtags: results.rows });
     })
 }
 
@@ -369,7 +378,7 @@ module.exports = {
     insertPostImage,
     selectUserImages,
     getProfile,
-    getNewsfeed,
+    getPosts,
     insertComment,
     insertLike,
     changeFollowStatus,
