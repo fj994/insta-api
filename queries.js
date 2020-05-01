@@ -24,7 +24,7 @@ const createUser = (req, res) => {
                 const id = results.rows[0].id;
                 pool.query(`INSERT INTO user_follows (user_id, follow_id) VALUES (${id}, ${id})`, (err, results) => {
                     if(err) console.log(err);
-                    res.status(201).send({ message: `User added with ID: ${id}`, error: null });
+                    res.status(201).send({ message: `Account created!`, error: null });
                 })
             }
         });
