@@ -43,6 +43,10 @@ app.post('/follow', jwt.validateToken, db.changeFollowStatus)
 
 app.post('/uploadprofile', jwt.validateToken, upload.uploadImage, db.insertProfileImage)
 
+app.patch('/password', jwt.validateToken, db.updatePassword)
+
+app.patch('/username', jwt.validateToken, db.updateUsername)
+
 app.listen(3000, function () {
     console.log('Listening on port 3000!');
 });

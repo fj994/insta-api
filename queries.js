@@ -15,7 +15,7 @@ const createUser = (req, res) => {
 
     if (username && password) {
         pool.query(`INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *`, [username.toLowerCase(), password], (err, results) => {
-            if (err) {                
+            if (err) {
                 if (err.constraint === 'users_email_key') {
                     res.status(400).send({ message: 'Account with username already exists!', error: 'username not unique!' });
                     console.log(err.detail);
@@ -23,7 +23,7 @@ const createUser = (req, res) => {
             } else {
                 const id = results.rows[0].id;
                 pool.query(`INSERT INTO user_follows (user_id, follow_id) VALUES (${id}, ${id})`, (err, results) => {
-                    if(err) console.log(err);
+                    if (err) console.log(err);
                     res.status(201).send({ message: `Account created!`, error: null });
                 })
             }
@@ -133,7 +133,7 @@ const insertPostImage = (req, res) => {
                     }
                 }, function (parallel_done) {
                     pool.query(`SELECT profile_image_path FROM users WHERE id = ${user_id}`, (err, results) => {
-                        if(err) console.log(err);
+                        if (err) console.log(err);
                         profile_image_path = results.rows[0].profile_image_path;
                         parallel_done();
                     })
@@ -190,8 +190,8 @@ const getProfile = (req, res, next) => {
         },
         function (parallel_done) {
             pool.query(`SELECT count(*) FILTER (WHERE user_id = ${id}) AS followsCount, count(*) FILTER (WHERE follow_id = ${id}) AS followingCount FROM user_follows`, (err, result) => {
-                profile.followersCount = result.rows[0].followscount;
-                profile.followingCount = result.rows[0].followingcount;
+                profile.followersCount = result.rows[0].followingcount;
+                profile.followingCount = result.rows[0].followscount;
                 parallel_done();
             });
         },
@@ -371,6 +371,49 @@ const getHashtagSearch = (req, res) => {
     })
 }
 
+const updatePassword = (req, res) => {
+    const user_id = jwt.getId(req);
+    const { password, newPassword } = req.body;
+
+    pool.query(`SELECT password FROM users WHERE id = ${user_id}`, (err, results) => {
+        if (err) console.log(err);
+
+        if (results.rows[0].password === password) {
+            pool.query(`UPDATE users SET password = '${newPassword}' WHERE id = ${user_id}`, (err, results) => {
+                if (err) console.log(err);
+                res.send({ message: 'Password successfully changed!' });
+            })
+        } else {
+            res.send({ message: 'Invalid password!' });
+        }
+    })
+}
+
+const updateUsername = (req, res) => {
+    const_id = jwt.getId(req);
+    const { password, username } = req.body;
+
+    pool.query(`SELECT password FROM users WHERE id = ${user_id}`, (err, results) => {
+        if (err) console.log(err);
+
+        if (results.rows[0].password === password) { 
+            pool.query(`SELECT username FROM users WHERE username = '${username}'`, (err, results) => {
+                if(err) console.log(err);
+                if(results.rows.length > 0) {
+                    res.status(201).send({message: 'Username already taken!'});
+                } else {
+                    pool.query(`UPDATE users SET username = '${username}' WHERE id = ${user_id}`, (err, results) => {
+                        if(err) console.log(err);
+                        res.send({message: 'Username changed successfully!'});
+                    })
+                }
+            })
+        } else {
+            res.status(201).send({message: 'Invalid password!'});
+        }
+    })
+}
+
 module.exports = {
     createUser,
     validateLogin,
@@ -385,5 +428,7 @@ module.exports = {
     insertProfileImage,
     getUsersSearch,
     getHashtagSearch,
-    getHashtagPosts
+    getHashtagPosts,
+    updatePassword,
+    updateUsername
 }
