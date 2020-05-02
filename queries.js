@@ -97,10 +97,10 @@ const validateRefreshToken = (req, res, next) => {
 
 const insertPostImage = (req, res) => {
     let { image, user_id, caption, hashtags } = req.image;
-
+    const { location } = req.body;
     hashtags = hashtags.split(',');
 
-    pool.query(`INSERT INTO posts (image_path, user_id, caption) VALUES ('${image}', ${user_id}, '${caption}') RETURNING post_id`, (err, results) => {
+    pool.query(`INSERT INTO posts (image_path, user_id, caption, location) VALUES ('${image}', ${user_id}, '${caption}', '${location}') RETURNING post_id`, (err, results) => {
         if (err) {
             console.log(err);
             return;
@@ -215,23 +215,28 @@ const getProfile = (req, res, next) => {
 
 const getPosts = (req, res, next) => {
     const user_id = jwt.getId(req);
-
     let { hashtag } = req.query;
+    const next_id = req.query.next;
+
     if (hashtag) hashtag = '#' + hashtag;
+
+    const page = `AND posts.post_id < ${next_id}`;
 
     const newsFeedQuery = `WHERE posts.user_id IN ((SELECT follow_id 
                                                         FROM user_follows 
                                                         WHERE user_id = ${user_id}))
+                                ${next_id ? page : ''}
                                 order by post_timestamp desc`;
 
     const hashtagQuery = `WHERE posts.post_id IN ((SELECT post_id
                                                         FROM hashtags 
                                                         WHERE hashtag = '${hashtag}'))
+                                ${next_id ? page : ''}
                                 order by post_timestamp desc`;
 
     const query = hashtag ? hashtagQuery : newsFeedQuery;
 
-    pool.query(`SELECT distinct posts.post_id, posts.user_id, username, profile_image_path, image_path, caption, post_timestamp, 
+    pool.query(`SELECT distinct posts.post_id, posts.user_id, username, profile_image_path, image_path, caption, location, post_timestamp, 
                     ARRAY(select hashtag 
                             from hashtags 
                             WHERE posts.post_id = hashtags.post_id) as hashtags,
@@ -244,6 +249,7 @@ const getPosts = (req, res, next) => {
                     left join post_likes on(posts.post_id = post_likes.post_id)
                     left join post_comments on(posts.post_id = post_comments.post_id)
                     ${query}
+                    LIMIT 10
                     `, (err, result) => {
         if (err) {
             res.status(400).send({ error: err });
@@ -396,20 +402,20 @@ const updateUsername = (req, res) => {
     pool.query(`SELECT password FROM users WHERE id = ${user_id}`, (err, results) => {
         if (err) console.log(err);
 
-        if (results.rows[0].password === password) { 
+        if (results.rows[0].password === password) {
             pool.query(`SELECT username FROM users WHERE username = '${username}'`, (err, results) => {
-                if(err) console.log(err);
-                if(results.rows.length > 0) {
-                    res.status(201).send({message: 'Username already taken!'});
+                if (err) console.log(err);
+                if (results.rows.length > 0) {
+                    res.status(401).send({ message: 'Username already taken!' });
                 } else {
                     pool.query(`UPDATE users SET username = '${username}' WHERE id = ${user_id}`, (err, results) => {
-                        if(err) console.log(err);
-                        res.send({message: 'Username changed successfully!'});
+                        if (err) console.log(err);
+                        res.send({ message: 'Username changed successfully!' });
                     })
                 }
             })
         } else {
-            res.status(201).send({message: 'Invalid password!'});
+            res.status(401).send({ message: 'Invalid password!' });
         }
     })
 }
