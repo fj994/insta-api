@@ -19,7 +19,9 @@ app.use('/static', express.static(path.join(__dirname, 'pictures')));
 
 app.get('/profile/:id', jwt.validateToken, db.getProfile);
 
-app.get('/newsfeed', jwt.validateToken, db.getPosts);
+app.get('/profile-images', jwt.validateToken, db.getMoreProfileImages)
+
+app.get('/posts', jwt.validateToken, db.getPosts);
 
 app.get('/hashtag', jwt.validateToken, db.getPosts);
 

@@ -183,7 +183,10 @@ const getProfile = (req, res, next) => {
             });
         },
         function (parallel_done) {
-            pool.query(`SELECT image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC`, (err, result) => {
+            pool.query(`SELECT post_id, image_path FROM posts WHERE user_id = ${id}  ORDER BY post_timestamp DESC LIMIT 9`, (err, result) => {
+                if (result.rows.length) {
+                    next = result.rows[result.rows.length - 1].post_id;
+                }
                 profile.posts = result.rows.map(element => element.image_path);
                 parallel_done();
             });
@@ -209,23 +212,38 @@ const getProfile = (req, res, next) => {
             return;
         }
 
-        res.send(profile);
+        res.send({ profile, next });
     })
+}
+
+const getMoreProfileImages = (req, res) => {
+    let { next, profile_id } = req.query;
+
+    pool.query(`SELECT post_id, image_path 
+                FROM posts 
+                WHERE user_id = ${profile_id} AND post_id < ${next} 
+                ORDER BY post_timestamp DESC LIMIT 9`, (err, result) => {
+        if (err) console.log(err);
+        if (result.rows.length) {
+            next = result.rows[result.rows.length - 1].post_id;
+        }
+        posts = result.rows.map(element => element.image_path);
+        res.send({ posts, next: next });
+    });
 }
 
 const getPosts = (req, res, next) => {
     const user_id = jwt.getId(req);
-    let { hashtag } = req.query;
-    const next_id = req.query.next;
 
-    if (hashtag) hashtag = '#' + hashtag;
+    let hashtag = req.query.hashtag === 'null' ? null : req.query.hashtag;
+    const next_id = req.query.next === 'null' ? null : req.query.next;
 
     const page = `AND posts.post_id < ${next_id}`;
 
     const newsFeedQuery = `WHERE posts.user_id IN ((SELECT follow_id 
                                                         FROM user_follows 
-                                                        WHERE user_id = ${user_id}))
-                                ${next_id ? page : ''}
+                                                        WHERE user_id = ${user_id})) 
+                                                        ${next_id ? page : ''}
                                 order by post_timestamp desc`;
 
     const hashtagQuery = `WHERE posts.post_id IN ((SELECT post_id
@@ -249,8 +267,7 @@ const getPosts = (req, res, next) => {
                     left join post_likes on(posts.post_id = post_likes.post_id)
                     left join post_comments on(posts.post_id = post_comments.post_id)
                     ${query}
-                    LIMIT 10
-                    `, (err, result) => {
+                    LIMIT 5`, (err, result) => {
         if (err) {
             res.status(400).send({ error: err });
         } else if (result.rows.length > 0) {
@@ -436,5 +453,6 @@ module.exports = {
     getHashtagSearch,
     getHashtagPosts,
     updatePassword,
-    updateUsername
+    updateUsername,
+    getMoreProfileImages
 }
