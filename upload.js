@@ -1,45 +1,47 @@
-const jimp = require('jimp');
 const shortid = require('shortid');
-const appRoot = require('app-root-path');
-const db = require('./queries');
+const { Storage } = require('@google-cloud/storage');
 const jwt = require('./jwt');
-const path = require('path');
+
+const storage = new Storage();
 
 const getFileExt = fileName => fileName.split('.').pop();
-const joinPath = fileName => path.join(appRoot.path, `/${fileName}`);
-const joinResourcePath = fileName => joinPath(`/pictures/${fileName}`);
 
-const uploadImage = async (req, res, next) => {
-    if (!req.files) {
-        return res.status(400).send({ message: 'No files were uploaded.' });
+const bucket = storage.bucket(process.env.GCLOUD_STORAGE_BUCKET);
+
+
+const uploadImage = (req, res, next) => {
+    if (!req.file) {
+        res.status(400).send('No file uploaded.');
+        return;
     }
 
-    user_id = jwt.getId(req);
-
-    const { file } = req.files;
     const { caption, hashtags } = req.body;
+    user_id = jwt.getId(req);
+    req.file.originalname = shortid.generate() + '.' + getFileExt(req.file.originalname);
 
-    const ext = getFileExt(file.name);
-    const image = `${shortid.generate()}.${ext}`;
-    const imagePath = joinResourcePath(image);
+    const blob = bucket.file(req.file.originalname);
+    blob.setMetadata()
+    const blobStream = blob.createWriteStream();
 
-    try {
-        const readPic = await jimp.read(file.data);
+    blobStream.on('error', (err) => {
+        res.send(err);
+        return;
+    })
 
-        readPic.write(imagePath);
+    blobStream.on('finish', () => {
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
 
-    } catch (e) {
-        return res.status(500).send(e);
-    }
+        req.image = {
+            publicUrl,
+            user_id,
+            caption,
+            hashtags
+        }
 
-    req.image = {
-        image,
-        user_id,
-        caption,
-        hashtags
-    }
+        next();
+    })
 
-    next();
+    blobStream.end(req.file.buffer);
 }
 
 module.exports = {

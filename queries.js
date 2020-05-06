@@ -3,22 +3,22 @@ const jwt = require('./jwt');
 const async = require('async');
 
 const pool = new Pool({
-    user: 'filip',
-    host: 'localhost',
-    database: 'microgram',
-    password: 'filip121',
-    port: 5432,
+    user: 'postgres',
+    host: '/cloudsql/microgram-276015:europe-west6:microgram-psdb',
+    password: 'filip121.,'
 });
 
 const createUser = (req, res) => {
     const { username, password } = req.body;
-
     if (username && password) {
         pool.query(`INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *`, [username.toLowerCase(), password], (err, results) => {
             if (err) {
+                console.log(err);
                 if (err.constraint === 'users_email_key') {
                     res.status(400).send({ message: 'Account with username already exists!', error: 'username not unique!' });
                     console.log(err.detail);
+                } else {
+                    res.send(err);
                 }
             } else {
                 const id = results.rows[0].id;
@@ -96,11 +96,11 @@ const validateRefreshToken = (req, res, next) => {
 }
 
 const insertPostImage = (req, res) => {
-    let { image, user_id, caption, hashtags } = req.image;
+    let { publicUrl, user_id, caption, hashtags } = req.image;
     const { location } = req.body;
     hashtags = hashtags.split(',');
 
-    pool.query(`INSERT INTO posts (image_path, user_id, caption, location) VALUES ('${image}', ${user_id}, '${caption}', '${location}') RETURNING post_id`, (err, results) => {
+    pool.query(`INSERT INTO posts (image_path, user_id, caption, location) VALUES ('${publicUrl}', ${user_id}, '${caption}', '${location}') RETURNING post_id`, (err, results) => {
         if (err) {
             console.log(err);
             return;
@@ -143,8 +143,8 @@ const insertPostImage = (req, res) => {
                     res.send({ err })
                     console.log(err);
                 };
-                console.log(image);
-                res.send({ image: image, post_id: post_id, profile_image_path: profile_image_path });
+                console.log(publicUrl);
+                res.send({ image: publicUrl, post_id: post_id, profile_image_path: profile_image_path });
             });
         }
     });
@@ -193,8 +193,8 @@ const getProfile = (req, res, next) => {
         },
         function (parallel_done) {
             pool.query(`SELECT count(*) FILTER (WHERE user_id = ${id}) AS followsCount, count(*) FILTER (WHERE follow_id = ${id}) AS followingCount FROM user_follows`, (err, result) => {
-                profile.followersCount = result.rows[0].followingcount;
-                profile.followingCount = result.rows[0].followscount;
+                profile.followersCount = result.rows[0].followingcount-1;
+                profile.followingCount = result.rows[0].followscount-1;
                 parallel_done();
             });
         },
@@ -360,13 +360,13 @@ const changeFollowStatus = (req, res) => {
 }
 
 const insertProfileImage = (req, res) => {
-    const { image, user_id } = req.image;
+    const { publicUrl, user_id } = req.image;
 
     pool.query(`UPDATE users
-                SET profile_image_path = '${image}'
+                SET profile_image_path = '${publicUrl}'
                 WHERE id = ${user_id}`, (err, results) => {
         if (err) console.log(err);
-        res.send({ image: image });
+        res.send({ image: publicUrl });
     });
 }
 

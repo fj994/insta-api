@@ -40,7 +40,7 @@ const refreshAuthToken = (req, res) => {
 
     jwt.verify(req.body.refreshToken, refreshKey, (err) => {
         if (err) {
-            res.send({login: false, token: null, err: err.message });
+            res.send({ login: false, token: null, err: err.message });
         } else {
             jwt.verify(req.body.token, jwtKey, (err) => {
                 if (err.message === 'jwt expired') {

@@ -1,0 +1,11 @@
+runtime: nodejs12
+
+env_variables:
+  GCLOUD_STORAGE_BUCKET: microgram-pictures
+
+handlers:
+  - url: /*
+    script: auto
+
+  - url: /static
+    static_dir: pictures
