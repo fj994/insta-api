@@ -4,7 +4,7 @@ const async = require('async');
 
 const pool = new Pool({
     user: 'postgres',
-    host: '/cloudsql/microgram-276015:europe-west6:microgram-psdb',
+    host: '/cloudsql/microgram-276015:europe-west6:microgram',
     password: 'filip121.,'
 });
 

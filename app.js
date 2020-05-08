@@ -7,9 +7,7 @@ const jwt = require('./jwt');
 const upload = require('./upload');
 const Multer = require('multer');
 
-
 const path = require('path');
-
 
 app.use(Cors());
 app.use(bodyParser.urlencoded({ extended: true }));

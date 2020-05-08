@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-const jwtKey = 'rajui';
-const refreshKey = 'rajuiRefresh';
+const jwtKey = 'example';
+const refreshKey = 'expampleRefresh';
 
 const issueToken = (username, id) => {
     return jwt.sign({ username, id }, jwtKey, {
