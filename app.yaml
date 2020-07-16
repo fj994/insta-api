@@ -1,7 +1,7 @@
 runtime: nodejs12
 
 env_variables:
-  GCLOUD_STORAGE_BUCKET: microgram-pictures
+  GCLOUD_STORAGE_BUCKET: microgram-picturess
 
 handlers:
   - url: /*
